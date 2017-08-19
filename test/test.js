@@ -823,3 +823,81 @@ describe('S3rver Class Tests', function() {
   })
 
 });
+
+describe('S3rver Tests with Redirect Rule', function () {
+  var s3Client;
+  var s3rver;
+  before(function (done) {
+    s3rver = new S3rver({
+      port: 5694,
+      hostname: 'localhost',
+      silent: true,
+      directory: '/tmp/s3rver_test_directory',
+      routingRule: {
+        Condition: {
+          /* HttpErrorCodeReturnedEquals: "404",*/
+          /* KeyPrefixEquals: "docs/"*/
+        },
+        Redirect: {
+          HttpRedirectCode: "307",
+          HostName: 'redirect.example.com',
+          Protocol: 'https',
+          ReplaceKeyPrefixWith: 'prod?key=',
+          /* ReplaceKeyWith: 'error.html'*/
+        }
+      }
+    }).run(function (err, hostname, port, directory) {
+        if (err) {
+          return done('Error starting server', err);
+        }
+        var config = {
+          accessKeyId: '123',
+          secretAccessKey: 'abc',
+          endpoint: util.format('%s:%d', hostname, port),
+          sslEnabled: false,
+          s3ForcePathStyle: true
+        };
+        AWS.config.update(config);
+        s3Client = new AWS.S3();
+        s3Client.endpoint = new AWS.Endpoint(config.endpoint);
+        /**
+         * Remove if exists and recreate the temporary directory
+         */
+        fs.remove(directory, function (err) {
+          if (err) {
+            return done(err);
+          }
+          fs.mkdirs(directory, done);
+        });
+      });
+  });
+
+  after(function (done) {
+    s3rver.close(done);
+  });
+
+  it('should redirect', function (done) {
+    s3Client.createBucket({Bucket: 'site'}, function (err) {
+      if (err) {
+        return done(err);
+      }
+
+      request({ url: 'http://localhost:5694/site/image.jpg', followRedirect: false },
+              function (error, response, body) {
+        if (error) {
+          return done(error);
+        }
+
+        if (response.statusCode !== 307) {
+          return done(new Error('Invalid status: ' + response.statusCode));
+        }
+
+        if (response.headers['location'] !== "https://redirect.example.com/prod?key=image.jpg") {
+          return done(new Error('Invalid Location header: ' + response.headers['location']));
+        }
+
+        done();
+      });
+    });
+  })
+});
