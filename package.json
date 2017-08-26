@@ -32,6 +32,8 @@
     "jstoxml": "^0.2.2",
     "lodash": "^3.10.1",
     "morgan": "^1.5.1",
+    "multer": "^1.3.0",
+    "streamifier": "^0.1.1",
     "winston": "^2.1.0",
     "xml2js": "^0.4.4",
     "xmlbuilder": "^4.0.0"
