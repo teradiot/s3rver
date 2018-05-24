@@ -833,19 +833,32 @@ describe('S3rver Tests with Redirect Rule', function () {
       hostname: 'localhost',
       silent: true,
       directory: '/tmp/s3rver_test_directory',
-      routingRule: {
-        Condition: {
-          /* HttpErrorCodeReturnedEquals: "404",*/
-          KeyPrefixEquals: "image/"
+      routingRules: [
+        {
+          Condition: {
+            /* HttpErrorCodeReturnedEquals: "404",*/
+            KeyPrefixEquals: "image"
+          },
+          Redirect: {
+            HttpRedirectCode: "307",
+            HostName: 'redirect.example.com',
+            Protocol: 'https',
+            ReplaceKeyPrefixWith: 'prod?key=',
+            /* ReplaceKeyWith: 'error.html'*/
+          }
         },
-        Redirect: {
-          HttpRedirectCode: "307",
-          HostName: 'redirect.example.com',
-          Protocol: 'https',
-          ReplaceKeyPrefixWith: 'prod?key=',
-          /* ReplaceKeyWith: 'error.html'*/
+        {
+          Condition: {
+            KeyPrefixEquals: "zimage"
+          },
+          Redirect: {
+            HttpRedirectCode: "301",
+            HostName: 'redirect2.example.com',
+            Protocol: 'https',
+            ReplaceKeyPrefixWith: 'prod?key=',
+          }
         }
-      }
+      ]
     }).run(function (err, hostname, port, directory) {
         if (err) {
           return done('Error starting server', err);
@@ -893,6 +906,30 @@ describe('S3rver Tests with Redirect Rule', function () {
         }
 
         if (response.headers['location'] !== "https://redirect.example.com/prod?key=image.jpg") {
+          return done(new Error('Invalid Location header: ' + response.headers['location']));
+        }
+
+        done();
+      });
+    });
+  })
+
+it('should redirect', function (done) {
+    s3Client.createBucket({Bucket: 'site3'}, function (err) {
+      if (err) {
+        return done(err);
+      }
+
+      request({ url: 'http://localhost:5694/site3/zimage.jpg', followRedirect: false }, function (error, response, body) {
+        if (error) {
+          return done(error);
+        }
+
+        if (response.statusCode !== 301) {
+          return done(new Error('Invalid status: ' + response.statusCode));
+        }
+
+        if (response.headers['location'] !== "https://redirect2.example.com/prod?key=zimage.jpg") {
           return done(new Error('Invalid Location header: ' + response.headers['location']));
         }
 
