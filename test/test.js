@@ -836,7 +836,7 @@ describe('S3rver Tests with Redirect Rule', function () {
       routingRule: {
         Condition: {
           /* HttpErrorCodeReturnedEquals: "404",*/
-          /* KeyPrefixEquals: "docs/"*/
+          KeyPrefixEquals: "image/"
         },
         Redirect: {
           HttpRedirectCode: "307",
@@ -893,6 +893,31 @@ describe('S3rver Tests with Redirect Rule', function () {
         }
 
         if (response.headers['location'] !== "https://redirect.example.com/prod?key=image.jpg") {
+          return done(new Error('Invalid Location header: ' + response.headers['location']));
+        }
+
+        done();
+      });
+    });
+  })
+
+  it('should not redirect when not match key prefix', function (done) {
+    s3Client.createBucket({Bucket: 'site2'}, function (err) {
+      if (err) {
+        return done(err);
+      }
+
+      request({ url: 'http://localhost:5694/site2/ximage.jpg', followRedirect: false }, function (error, response, body) {
+
+        if (error) {
+          return done(error);
+        }
+
+        if (response.statusCode === 307) {
+          return done(new Error('Invalid status: must be 404, but ' + response.statusCode));
+        }
+
+        if (response.headers['location']) {
           return done(new Error('Invalid Location header: ' + response.headers['location']));
         }
 
